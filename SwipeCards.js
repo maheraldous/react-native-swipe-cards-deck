@@ -2,7 +2,7 @@
 
 import React, { Component } from "react";
 import PropTypes from "prop-types";
-import { View, Animated, PanResponder, ViewPropTypes } from "react-native";
+import { View, Animated, PanResponder } from "react-native";
 import Defaults from "./Defaults";
 import clamp from "clamp";
 import { styles } from "./Styles";
@@ -11,6 +11,7 @@ import { styles } from "./Styles";
 let currentIndex = {};
 let guid = 0;
 
+// Since the ViewProps will get removed from react native I fixed the code to work without it but in the future we need to use TypeScript
 const actionShape = {
   show: PropTypes.bool,
   view: PropTypes.element, // takes priority over text + color
