@@ -11,15 +11,15 @@ import { styles } from "./Styles";
 let currentIndex = {};
 let guid = 0;
 
-const actionShape = PropTypes.shape({
+const actionShape = {
   show: PropTypes.bool,
   view: PropTypes.element, // takes priority over text + color
-  containerStyle: ViewPropTypes.style,
-  textStyle: ViewPropTypes.style,
+  containerStyle: PropTypes.any,
+  textStyle: PropTypes.any,
   text: PropTypes.string,
   color: PropTypes.string,
   onAction: PropTypes.func, // triggered on action, given card data, must return true if success
-});
+};
 
 const defaultActionsProp = {
   yup: { show: true, text: "Yup!", color: "green" },
@@ -32,6 +32,7 @@ const mergeActionProps = (actionsProps) => ({
   nope: { ...defaultActionsProp.nope, ...actionsProps.nope },
   maybe: { ...defaultActionsProp.maybe, ...actionsProps.maybe },
 });
+
 
 export default class SwipeCards extends Component {
   constructor(props) {
@@ -594,16 +595,16 @@ SwipeCards.propTypes = {
   stackOffsetY: PropTypes.number,
   renderNoMoreCards: PropTypes.func,
   actions: PropTypes.shape({
-    yup: actionShape,
-    nope: actionShape,
-    maybe: actionShape,
+    yup: PropTypes.shape(actionShape),
+    nope: PropTypes.shape(actionShape),
+    maybe: PropTypes.shape(actionShape),
   }),
   onClickHandler: PropTypes.func,
   onDragStart: PropTypes.func,
   onDragRelease: PropTypes.func,
   cardRemoved: PropTypes.func,
   renderCard: PropTypes.func.isRequired,
-  style: ViewPropTypes.style,
+  style: PropTypes.any,
   dragY: PropTypes.bool,
   smoothTransition: PropTypes.bool,
   keyExtractor: PropTypes.func.isRequired,
