@@ -49,6 +49,9 @@ export default class SwipeCards extends Component {
       enter: new Animated.Value(0.5),
       cards: [].concat(this.props.cards),
       card: this.props.cards[currentIndex[this.guid]],
+      lastSwipedNopeCard: null,
+      isThereSwipedNope: false,
+      isAllSwiped: false,
     };
 
     this.lastX = 0;
@@ -175,8 +178,15 @@ export default class SwipeCards extends Component {
       toValue: { x: -500, y: 0 },
       useNativeDriver: true,
     }).start((status) => {
-      if (status.finished) this._advanceState();
-      else this._resetState();
+      if (status.finished) {
+        this.setState((prevState) => ({
+          lastSwipedNopeCard: prevState.card,
+          isThereSwipedNope: true,
+        }));
+        this._advanceState();
+      } else {
+        this._resetState();
+      }
 
       this.cardAnimation = null;
     });
@@ -201,17 +211,54 @@ export default class SwipeCards extends Component {
       toValue: { x: 500, y: 0 },
       useNativeDriver: true,
     }).start((status) => {
-      if (status.finished) this._advanceState();
-      else this._resetState();
+      if (status.finished) {
+        this.setState(() => ({
+          lastSwipedNopeCard: null,
+          isThereSwipedNope: false,
+        }));
+        this._advanceState();
+      } else {
+        this._resetState();
+      }
 
       this.cardAnimation = null;
     });
     if (this.props.cardRemoved) this.props.cardRemoved(currentIndex[this.guid]);
   }
 
+  _forceReturnSwipe() {
+    this.cardAnimation = Animated.timing(this.state.pan, {
+      toValue: { x: 0, y: 0 },
+      useNativeDriver: true,
+    }).start((status) => {
+      if (status.finished) {
+        this.setState(() => ({
+          lastSwipedNopeCard: null,
+          isThereSwipedNope: false,
+        }));
+        this._advanceStateReturn();
+      } else {
+        this._resetState();
+      }
+      this.cardAnimation = null;
+    });
+    this.setState(() => ({
+      lastSwipedNopeCard: null,
+    }));
+  }
+
+  _forceShowSwipedCards() {
+    // console.log('cards: ', this.state.cards.length);
+    // console.log('card: ', this.state.card);
+    // console.log('lastSwipedNopeCard: ', this.state.lastSwipedNopeCard);
+    return this.state.isThereSwipedNope;
+  }
+
   swipeMaybe = () => this._forceUpSwipe();
   swipeYup = () => this._forceRightSwipe();
   swipeNope = () => this._forceLeftSwipe();
+  swipeReturn = () => this._forceReturnSwipe();
+  swipedNope = () => this._forceShowSwipedCards();
 
   _goToNextCard() {
     currentIndex[this.guid]++;
@@ -232,9 +279,9 @@ export default class SwipeCards extends Component {
   }
 
   _goToPrevCard() {
-    this.state.pan.setValue({ x: 0, y: 0 });
-    this.state.enter.setValue(0);
-    this._animateEntrance();
+    // this.state.pan.setValue({ x: 0, y: 0 });
+    // this.state.enter.setValue(0);
+    // this._animateEntrance();
 
     currentIndex[this.guid]--;
 
@@ -265,17 +312,26 @@ export default class SwipeCards extends Component {
         this.cardAnimation.stop();
         this.cardAnimation = null;
       }
-
       currentIndex[this.guid] = 0;
       this.setState({
         cards: [].concat(this.props.cards),
         card: this.props.cards[0],
+        isAllSwiped: false,
       });
+
       this._resetState();
     }
 
     if (prevProps.actions !== this.props.actions) {
       this.mergedActionsProps = mergeActionProps(this.props.actions);
+    }
+    
+    if (
+      !prevState.isAllSwiped &&
+      this.state.isAllSwiped &&
+      this.props.AllSwiped
+    ) {
+      this.props.AllSwiped();
     }
   }
 
@@ -297,10 +353,23 @@ export default class SwipeCards extends Component {
   }
 
   _advanceState() {
+    if (currentIndex[this.guid] >= this.state.cards.length - 1) {
+      this.setState({ isAllSwiped: true });
+    } else {
+      this.setState({ isAllSwiped: false });
+    }
     this.state.pan.setValue({ x: 0, y: 0 });
     this.state.enter.setValue(0);
     this._animateEntrance();
     this._goToNextCard();
+  }
+
+  _advanceStateReturn() {
+    this.setState({ isAllSwiped: false });
+    this.state.pan.setValue({ x: 0, y: 0 });
+    this.state.enter.setValue(0);
+    this._animateEntrance();
+    this._goToPrevCard();
   }
 
   /**
@@ -595,6 +664,7 @@ SwipeCards.propTypes = {
   stackOffsetX: PropTypes.number,
   stackOffsetY: PropTypes.number,
   renderNoMoreCards: PropTypes.func,
+  AllSwiped: PropTypes.func,
   actions: PropTypes.shape({
     yup: PropTypes.shape(actionShape),
     nope: PropTypes.shape(actionShape),
@@ -618,8 +688,8 @@ SwipeCards.defaultProps = {
   loop: false,
   allowGestureTermination: true,
   stack: false,
-  stackDepth: 5,
-  stackOffsetX: 25,
+  stackDepth: 2,
+  stackOffsetX: 0,
   stackOffsetY: 0,
   actions: defaultActionsProp,
   dragY: true,
