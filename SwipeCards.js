@@ -2,7 +2,7 @@
 
 import React, { Component } from "react";
 import PropTypes from "prop-types";
-import { View, Animated, PanResponder } from "react-native";
+import { View, Animated, PanResponder, ViewPropTypes } from "react-native";
 import Defaults from "./Defaults";
 import clamp from "clamp";
 import { styles } from "./Styles";
@@ -11,16 +11,15 @@ import { styles } from "./Styles";
 let currentIndex = {};
 let guid = 0;
 
-// Since the ViewProps will get removed from react native I fixed the code to work without it but in the future we need to use TypeScript
-const actionShape = {
+const actionShape = PropTypes.shape({
   show: PropTypes.bool,
   view: PropTypes.element, // takes priority over text + color
-  containerStyle: PropTypes.any,
-  textStyle: PropTypes.any,
+  containerStyle: ViewPropTypes.style,
+  textStyle: ViewPropTypes.style,
   text: PropTypes.string,
   color: PropTypes.string,
   onAction: PropTypes.func, // triggered on action, given card data, must return true if success
-};
+});
 
 const defaultActionsProp = {
   yup: { show: true, text: "Yup!", color: "green" },
@@ -33,7 +32,6 @@ const mergeActionProps = (actionsProps) => ({
   nope: { ...defaultActionsProp.nope, ...actionsProps.nope },
   maybe: { ...defaultActionsProp.maybe, ...actionsProps.maybe },
 });
-
 
 export default class SwipeCards extends Component {
   constructor(props) {
@@ -49,9 +47,6 @@ export default class SwipeCards extends Component {
       enter: new Animated.Value(0.5),
       cards: [].concat(this.props.cards),
       card: this.props.cards[currentIndex[this.guid]],
-      lastSwipedNopeCard: null,
-      isThereSwipedNope: false,
-      isAllSwiped: false,
     };
 
     this.lastX = 0;
@@ -178,15 +173,8 @@ export default class SwipeCards extends Component {
       toValue: { x: -500, y: 0 },
       useNativeDriver: true,
     }).start((status) => {
-      if (status.finished) {
-        this.setState((prevState) => ({
-          lastSwipedNopeCard: prevState.card,
-          isThereSwipedNope: true,
-        }));
-        this._advanceState();
-      } else {
-        this._resetState();
-      }
+      if (status.finished) this._advanceState();
+      else this._resetState();
 
       this.cardAnimation = null;
     });
@@ -211,54 +199,17 @@ export default class SwipeCards extends Component {
       toValue: { x: 500, y: 0 },
       useNativeDriver: true,
     }).start((status) => {
-      if (status.finished) {
-        this.setState(() => ({
-          lastSwipedNopeCard: null,
-          isThereSwipedNope: false,
-        }));
-        this._advanceState();
-      } else {
-        this._resetState();
-      }
+      if (status.finished) this._advanceState();
+      else this._resetState();
 
       this.cardAnimation = null;
     });
     if (this.props.cardRemoved) this.props.cardRemoved(currentIndex[this.guid]);
   }
 
-  _forceReturnSwipe() {
-    this.cardAnimation = Animated.timing(this.state.pan, {
-      toValue: { x: 0, y: 0 },
-      useNativeDriver: true,
-    }).start((status) => {
-      if (status.finished) {
-        this.setState(() => ({
-          lastSwipedNopeCard: null,
-          isThereSwipedNope: false,
-        }));
-        this._advanceStateReturn();
-      } else {
-        this._resetState();
-      }
-      this.cardAnimation = null;
-    });
-    this.setState(() => ({
-      lastSwipedNopeCard: null,
-    }));
-  }
-
-  _forceShowSwipedCards() {
-    // console.log('cards: ', this.state.cards.length);
-    // console.log('card: ', this.state.card);
-    // console.log('lastSwipedNopeCard: ', this.state.lastSwipedNopeCard);
-    return this.state.isThereSwipedNope;
-  }
-
   swipeMaybe = () => this._forceUpSwipe();
   swipeYup = () => this._forceRightSwipe();
   swipeNope = () => this._forceLeftSwipe();
-  swipeReturn = () => this._forceReturnSwipe();
-  swipedNope = () => this._forceShowSwipedCards();
 
   _goToNextCard() {
     currentIndex[this.guid]++;
@@ -279,9 +230,9 @@ export default class SwipeCards extends Component {
   }
 
   _goToPrevCard() {
-    // this.state.pan.setValue({ x: 0, y: 0 });
-    // this.state.enter.setValue(0);
-    // this._animateEntrance();
+    this.state.pan.setValue({ x: 0, y: 0 });
+    this.state.enter.setValue(0);
+    this._animateEntrance();
 
     currentIndex[this.guid]--;
 
@@ -312,26 +263,17 @@ export default class SwipeCards extends Component {
         this.cardAnimation.stop();
         this.cardAnimation = null;
       }
+
       currentIndex[this.guid] = 0;
       this.setState({
         cards: [].concat(this.props.cards),
         card: this.props.cards[0],
-        isAllSwiped: false,
       });
-
       this._resetState();
     }
 
     if (prevProps.actions !== this.props.actions) {
       this.mergedActionsProps = mergeActionProps(this.props.actions);
-    }
-    
-    if (
-      !prevState.isAllSwiped &&
-      this.state.isAllSwiped &&
-      this.props.AllSwiped
-    ) {
-      this.props.AllSwiped();
     }
   }
 
@@ -353,23 +295,10 @@ export default class SwipeCards extends Component {
   }
 
   _advanceState() {
-    if (currentIndex[this.guid] >= this.state.cards.length - 1) {
-      this.setState({ isAllSwiped: true });
-    } else {
-      this.setState({ isAllSwiped: false });
-    }
     this.state.pan.setValue({ x: 0, y: 0 });
     this.state.enter.setValue(0);
     this._animateEntrance();
     this._goToNextCard();
-  }
-
-  _advanceStateReturn() {
-    this.setState({ isAllSwiped: false });
-    this.state.pan.setValue({ x: 0, y: 0 });
-    this.state.enter.setValue(0);
-    this._animateEntrance();
-    this._goToPrevCard();
   }
 
   /**
@@ -664,18 +593,17 @@ SwipeCards.propTypes = {
   stackOffsetX: PropTypes.number,
   stackOffsetY: PropTypes.number,
   renderNoMoreCards: PropTypes.func,
-  AllSwiped: PropTypes.func,
   actions: PropTypes.shape({
-    yup: PropTypes.shape(actionShape),
-    nope: PropTypes.shape(actionShape),
-    maybe: PropTypes.shape(actionShape),
+    yup: actionShape,
+    nope: actionShape,
+    maybe: actionShape,
   }),
   onClickHandler: PropTypes.func,
   onDragStart: PropTypes.func,
   onDragRelease: PropTypes.func,
   cardRemoved: PropTypes.func,
   renderCard: PropTypes.func.isRequired,
-  style: PropTypes.any,
+  style: ViewPropTypes.style,
   dragY: PropTypes.bool,
   smoothTransition: PropTypes.bool,
   keyExtractor: PropTypes.func.isRequired,
@@ -688,8 +616,8 @@ SwipeCards.defaultProps = {
   loop: false,
   allowGestureTermination: true,
   stack: false,
-  stackDepth: 2,
-  stackOffsetX: 0,
+  stackDepth: 5,
+  stackOffsetX: 25,
   stackOffsetY: 0,
   actions: defaultActionsProp,
   dragY: true,
